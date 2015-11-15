@@ -23,7 +23,14 @@ object Application extends App {
         extractEntityId = Event.extractEntityId,
         extractShardId = Event.extractShardId)
 
-    val service = system.actorOf(Props(classOf[ApiService], events), name = "api")
+    val userEvents = ClusterSharding(system).start(
+        typeName = "userevents",
+        entityProps = Props[UserEvents],
+        settings = ClusterShardingSettings(system),
+        extractEntityId = UserEvents.extractEntityId,
+        extractShardId = UserEvents.extractShardId)
+
+    val service = system.actorOf(Props(classOf[ApiService], events, userEvents), name = "api")
 
     IO(Http) ! Http.Bind(service, "0.0.0.0", port = 5000)
 

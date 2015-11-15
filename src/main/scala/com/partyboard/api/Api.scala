@@ -13,7 +13,7 @@ import spray.httpx.unmarshalling._
 import spray.json._
 import spray.routing.{HttpServiceActor, RequestContext}
 
-import com.partyboard.domain.{Event, EventState}
+import com.partyboard.domain._
 
 class StreamActor(val slug: String, val client: ActorRef) extends Actor with ActorLogging {
     import com.partyboard.protocol.Json._
@@ -37,7 +37,7 @@ class StreamActor(val slug: String, val client: ActorRef) extends Actor with Act
     def eventChunk(event: String, data: String) = MessageChunk(s"event: ${event}\r\ndata: ${data}\r\n\r\n")
 }
 
-class ApiService(events: ActorRef) extends HttpServiceActor {
+class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActor {
     implicit val timeout = Timeout(2.seconds)
 
     implicit val ec = context.dispatcher
@@ -54,11 +54,14 @@ class ApiService(events: ActorRef) extends HttpServiceActor {
             path("events") {
                 import com.partyboard.protocol.Json._
                 get {
-                    complete("")
+                    complete {
+                        (userEvents ? UserEvents.Get("test")).mapTo[UserEventsState]
+                    }
                 } ~
                 post {
                     entity(as[Event.Create]) { cmd =>
                         events ! cmd
+                        userEvents ! UserEvents.AddEvent("test", EventRef(cmd.slug, cmd.title))
                         complete {
                             (StatusCodes.Accepted, cmd.slug)
                         }

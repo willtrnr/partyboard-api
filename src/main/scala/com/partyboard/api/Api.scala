@@ -14,9 +14,10 @@ import spray.json._
 import spray.routing.{HttpServiceActor, RequestContext}
 
 import com.partyboard.domain.{Event, EventState}
-import com.partyboard.protocol.Json._
 
 class StreamActor(val slug: String, val ctx: RequestContext) extends Actor with ActorLogging {
+    import com.partyboard.protocol.Json._
+
     override def preStart(): Unit = {
         super.preStart
         context.system.eventStream.subscribe(self, classOf[Event.PictureAdded])
@@ -48,15 +49,12 @@ class ApiService(events: ActorRef) extends HttpServiceActor {
     override def receive = runRoute {
         respondWithHeaders(AccessControlAllowAll, AccessControlAllowHeadersAll, AccessControlAllowCredentialsAll) {
             options {
-                complete {
-                    ""
-                }
+                complete("")
             } ~
             path("events") {
+                import com.partyboard.protocol.Json._
                 get {
-                    complete {
-                        "ehjfgeh"
-                    }
+                    complete("")
                 } ~
                 post {
                     entity(as[Event.Create]) { cmd =>
@@ -68,14 +66,26 @@ class ApiService(events: ActorRef) extends HttpServiceActor {
                 }
             } ~
             path("events" / Segment) { slug =>
+                import com.partyboard.protocol.Json._
                 get {
                     complete {
                         (events ? Event.Get(slug)).mapTo[EventState]
                     }
                 } ~
                 put {
+                    complete("")
+                }
+            } ~
+            path("events" / Segment / "pictures") { slug =>
+                get {
+                    import com.partyboard.protocol.Json._
                     complete {
-                        "ejrfhuejf"
+                        (events ? Event.Get(slug)).mapTo[EventState].map(_.pictures)
+                    }
+                } ~
+                post {
+                    entity(as[Array[Byte]]) { raw =>
+                        complete(raw.length.toString)
                     }
                 }
             } ~

@@ -16,3 +16,5 @@ libraryDependencies ++= Seq(
   "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8")
 
 scalacOptions ++= Seq("-deprecation")
+
+enablePlugins(JavaAppPackaging)

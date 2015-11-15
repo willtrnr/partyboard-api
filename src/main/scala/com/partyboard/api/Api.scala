@@ -15,6 +15,7 @@ import spray.json._
 import spray.routing.{HttpServiceActor, RequestContext}
 
 import com.partyboard.domain._
+import com.partyboard.protocol.Json._
 
 class StreamActor(val slug: String, val client: ActorRef) extends Actor with ActorLogging {
     import com.partyboard.protocol.Json._
@@ -53,7 +54,6 @@ class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActo
                 complete("")
             } ~
             path("events") {
-                import com.partyboard.protocol.Json._
                 get {
                     complete {
                         (userEvents ? UserEvents.Get("test")).mapTo[UserEventsState]
@@ -72,7 +72,6 @@ class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActo
                 }
             } ~
             path("events" / Segment) { slug =>
-                import com.partyboard.protocol.Json._
                 get {
                     complete {
                         (events ? Event.Get(slug)).mapTo[EventState]
@@ -84,18 +83,22 @@ class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActo
             } ~
             path("events" / Segment / "pictures") { slug =>
                 get {
-                    import com.partyboard.protocol.Json._
                     complete {
                         (events ? Event.Get(slug)).mapTo[EventState].map(_.pictures)
                     }
                 } ~
                 post {
-                    entity(as[Array[Byte]]) { raw =>
+                    entity(as[MultipartFormData]) { formdata =>
                         detach() {
-                            val url = com.partyboard.Storage.upload("partyboardstatic", java.util.UUID.randomUUID.toString, "image/jpg", new java.io.ByteArrayInputStream(raw))
-                            events ! Event.AddPicture(slug, url)
-                            complete {
-                                (StatusCodes.Accepted, url)
+                            val urls = formdata.fields.map { f =>
+                                val url = com.partyboard.Storage.upload("partyboardstatic", java.util.UUID.randomUUID.toString, "image/jpg", new java.io.ByteArrayInputStream(f.entity.data.toByteArray))
+                                events ! Event.AddPicture(slug, url)
+                                url
+                            }
+                            respondWithMediaType(`application/json`) {
+                                complete {
+                                    (StatusCodes.Accepted, urls.toJson.toString)
+                                }
                             }
                         }
                     }

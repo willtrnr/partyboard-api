@@ -8,6 +8,7 @@ import akka.util.Timeout
 
 import spray.can.Http
 import spray.http._
+import spray.http.MediaTypes._
 import spray.httpx.marshalling._
 import spray.httpx.unmarshalling._
 import spray.json._
@@ -62,8 +63,10 @@ class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActo
                     entity(as[Event.Create]) { cmd =>
                         events ! cmd
                         userEvents ! UserEvents.AddEvent("test", EventRef(cmd.slug, cmd.title))
-                        complete {
-                            (StatusCodes.Accepted, cmd.slug)
+                        respondWithMediaType(`application/json`) {
+                            complete {
+                                (StatusCodes.Accepted, "\"" + cmd.slug + "\"")
+                            }
                         }
                     }
                 }

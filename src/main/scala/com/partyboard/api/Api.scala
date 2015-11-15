@@ -40,7 +40,7 @@ class StreamActor(val slug: String, val client: ActorRef) extends Actor with Act
 }
 
 class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActor {
-    implicit val timeout = Timeout(2.seconds)
+    implicit val timeout = Timeout(10.seconds)
 
     implicit val ec = context.dispatcher
 
@@ -91,7 +91,14 @@ class ApiService(events: ActorRef, userEvents: ActorRef) extends HttpServiceActo
                     entity(as[MultipartFormData]) { formdata =>
                         detach() {
                             val urls = formdata.fields.map { f =>
-                                val url = com.partyboard.Storage.upload("partyboardstatic", java.util.UUID.randomUUID.toString, "image/jpg", new java.io.ByteArrayInputStream(f.entity.data.toByteArray))
+                                val url = com.partyboard.Storage.upload(
+                                    "partyboardstatic",
+                                    java.util.UUID.randomUUID.toString,
+                                    f.entity match {
+                                        case e: HttpEntity.NonEmpty => e.contentType.toString
+                                        case _ => "image/jpg"
+                                    },
+                                    new java.io.ByteArrayInputStream(f.entity.data.toByteArray))
                                 events ! Event.AddPicture(slug, url)
                                 url
                             }

@@ -20,6 +20,10 @@ import com.partyboard.protocol.Json._
 class StreamActor(val slug: String, val client: ActorRef) extends Actor with ActorLogging {
     import com.partyboard.protocol.Json._
 
+    implicit val dispatcher = context.dispatcher
+
+    val keepalive = context.system.scheduler.schedule(0.milliseconds, 10.seconds, self, 'KeepAlive)
+
     override def preStart(): Unit = {
         super.preStart
         context.system.eventStream.subscribe(self, classOf[Event.PictureAdded])
@@ -28,11 +32,13 @@ class StreamActor(val slug: String, val client: ActorRef) extends Actor with Act
 
     override def postStop(): Unit = {
         context.system.eventStream.unsubscribe(self)
+        keepalive.cancel
         super.postStop
     }
 
     override def receive: Receive = {
         case e @ Event.PictureAdded(s, _, _) if s == slug => client ! eventChunk("picture", e.toJson.toString)
+        case 'KeepAlive => client ! eventChunk("keepalive", System.currentTimeMillis.toString)
         case _: Http.ConnectionClosed => context.stop(self)
     }
 

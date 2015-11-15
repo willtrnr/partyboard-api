@@ -85,7 +85,13 @@ class ApiService(events: ActorRef) extends HttpServiceActor {
                 } ~
                 post {
                     entity(as[Array[Byte]]) { raw =>
-                        complete(raw.length.toString)
+                        detach() {
+                            val url = com.partyboard.Storage.upload("partyboardstatic", java.util.UUID.randomUUID.toString, "image/jpg", new java.io.ByteArrayInputStream(raw))
+                            events ! Event.AddPicture(slug, url)
+                            complete {
+                                (StatusCodes.Accepted, url)
+                            }
+                        }
                     }
                 }
             } ~

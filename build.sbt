@@ -13,7 +13,9 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-cluster" % "2.4.0",
   "com.typesafe.akka" %% "akka-cluster-sharding" % "2.4.0",
   "org.iq80.leveldb" % "leveldb" % "0.7",
-  "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8")
+  "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
+  "com.google.api-client" % "google-api-client" % "1.19.1",
+  "com.google.apis" % "google-api-services-storage" % "v1-rev52-1.20.0")
 
 scalacOptions ++= Seq("-deprecation")
 

@@ -23,7 +23,7 @@ class StreamActor(val slug: String, val client: ActorRef) extends Actor with Act
     override def preStart(): Unit = {
         super.preStart
         context.system.eventStream.subscribe(self, classOf[Event.PictureAdded])
-        client ! ChunkedResponseStart(HttpResponse(entity = HttpEntity(MediaType.custom("text/event-stream"), "")))
+        client ! ChunkedResponseStart(HttpResponse(entity = HttpEntity(MediaType.custom("text/event-stream"), "event: connected\r\ndata: true\r\n\r\n")))
     }
 
     override def postStop(): Unit = {

@@ -11,17 +11,18 @@ case class EventState(val slug: String, val title: String, val pictures: Seq[Str
 class Event extends PersistentActor with ActorLogging {
     import Event._
 
-    context.setReceiveTimeout(5.minutes)
+    var state: EventState = _
 
-    var state: EventState = null
+    context.setReceiveTimeout(5.minutes)
 
     override def persistenceId: String = s"event-${self.path.name}"
 
     def updateState(evt: EventEvent): Unit = evt match {
         case Created(slug, title) => {
-            state = EventState(slug, title, Seq("http://lorempixel.com/300/300/", "http://lorempixel.com/301/300/", "http://lorempixel.com/300/301/", "http://lorempixel.com/301/301/"))
+            state = EventState(slug = slug, title = title)
             context become initialized
         }
+        case PictureAdded(_, _, url) => state = state.copy(pictures = state.pictures :+ url)
     }
 
     override def receiveRecover: Receive = {
@@ -37,12 +38,16 @@ class Event extends PersistentActor with ActorLogging {
             updateState(evt)
             context.system.eventStream.publish(evt)
         }
-        case _: Get => sender() ! Status.Failure(NotInitializedException())
+        case _: EventCommand => sender() ! Status.Failure(NotInitializedException())
     }
 
     def initialized: Receive = {
         case _: Create => sender() ! Status.Failure(DuplicateException())
         case _: Get => sender() ! state
+        case AddPicture(_, url) => persist(PictureAdded(state.slug, state.pictures.length, url)) { evt =>
+            updateState(evt)
+            context.system.eventStream.publish(evt)
+        }
     }
 
     override def receiveCommand: Receive = uninitialized
@@ -61,7 +66,7 @@ object Event {
 
     trait EventEvent extends Serializable { def slug: String }
     case class Created(val slug: String, val title: String) extends EventEvent
-    case class PictureAdded(val slug: String, val url: String) extends EventEvent
+    case class PictureAdded(val slug: String, val idx: Long, val url: String) extends EventEvent
 
     abstract class EventException(msg: String) extends Exception(msg)
     case class NotInitializedException() extends EventException("Event does not exist")

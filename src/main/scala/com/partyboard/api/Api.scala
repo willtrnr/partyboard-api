@@ -15,13 +15,13 @@ import spray.routing.{HttpServiceActor, RequestContext}
 
 import com.partyboard.domain.{Event, EventState}
 
-class StreamActor(val slug: String, val ctx: RequestContext) extends Actor with ActorLogging {
+class StreamActor(val slug: String, val client: ActorRef) extends Actor with ActorLogging {
     import com.partyboard.protocol.Json._
 
     override def preStart(): Unit = {
         super.preStart
         context.system.eventStream.subscribe(self, classOf[Event.PictureAdded])
-        ctx.responder ! ChunkedResponseStart(HttpResponse(entity = HttpEntity(MediaType.custom("text/event-stream"), "")))
+        client ! ChunkedResponseStart(HttpResponse(entity = HttpEntity(MediaType.custom("text/event-stream"), "")))
     }
 
     override def postStop(): Unit = {
@@ -30,7 +30,7 @@ class StreamActor(val slug: String, val ctx: RequestContext) extends Actor with 
     }
 
     override def receive: Receive = {
-        case e @ Event.PictureAdded(s, _) if s == slug => ctx.responder ! eventChunk("picture", e.toJson.toString)
+        case e @ Event.PictureAdded(s, _, _) if s == slug => client ! eventChunk("picture", e.toJson.toString)
         case _: Http.ConnectionClosed => context.stop(self)
     }
 
@@ -91,7 +91,7 @@ class ApiService(events: ActorRef) extends HttpServiceActor {
             } ~
             path("events" / Segment / "stream") { slug =>
                 get { ctx =>
-                    actorRefFactory.actorOf(Props(classOf[StreamActor], slug, ctx))
+                    actorRefFactory.actorOf(Props(classOf[StreamActor], slug, ctx.responder))
                 }
             }
         }

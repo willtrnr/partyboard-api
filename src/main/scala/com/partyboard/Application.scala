@@ -25,7 +25,7 @@ object Application extends App {
 
     val service = system.actorOf(Props(classOf[ApiService], events), name = "api")
 
-    IO(Http) ! Http.Bind(service, "localhost", port = 8080)
+    IO(Http) ! Http.Bind(service, "0.0.0.0", port = 5000)
 
     sys.addShutdownHook(system.terminate())
 }

@@ -1,10 +1,10 @@
 package com.partyboard.controllers
 
+import javax.inject.{Inject, Singleton}
+
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.language.postfixOps
-
-import javax.inject.{Inject, Singleton}
 
 import play.api.libs.EventSource
 import play.api.libs.EventSource.{EventDataExtractor, EventNameExtractor}
@@ -108,7 +108,14 @@ class EventsController @Inject() (val system: ActorSystem, val reactiveMongoApi:
 
     def delete(slug: String) = Action.async {
         eventBySlug(slug).flatMap(_.map { event =>
-            collection.sibling("pictures").remove(JsObject(Seq("event" -> (event \ "_id").as[JsValue])))
+            collection.sibling("pictures")
+                .find(JsObject(Seq("event" -> (event \ "_id").as[JsValue])))
+                .cursor[JsObject]()
+                .collect[List]()
+                .map(_.foreach { picture =>
+                    reactiveMongoApi.gridFS.remove((picture \ "file").as[JsValue])
+                    collection.sibling("pictures").remove(JsObject(Seq("_id" -> (picture \ "_id").as[JsValue])))
+                })
             collection.remove(JsObject(Seq("event" -> (event \ "_id").as[JsValue]))).map { err =>
                 NoContent
             }

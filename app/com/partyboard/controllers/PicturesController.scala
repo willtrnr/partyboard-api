@@ -89,6 +89,7 @@ class PicturesController @Inject() (val reactiveMongoApi: ReactiveMongoApi, val 
                 .cursor[JsObject]()
                 .headOption
                 .flatMap(_.map { picture =>
+                    reactiveMongoApi.gridFS.remove((picture \ "file").as[JsValue])
                     collection.remove(JsObject(Seq("_id" -> (picture \ "_id").as[JsValue]))).map { err =>
                         NoContent
                     }

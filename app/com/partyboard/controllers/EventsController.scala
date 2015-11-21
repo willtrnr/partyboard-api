@@ -8,7 +8,7 @@ import scala.language.postfixOps
 import play.api.libs.EventSource
 import play.api.libs.EventSource.{EventDataExtractor, EventNameExtractor}
 import play.api.libs.functional.syntax._
-import play.api.libs.iteratee.{Concurrent, Enumerator}
+import play.api.libs.iteratee.{Concurrent, Enumerator, Enumeratee}
 import play.api.libs.json._
 import play.api.libs.json.Reads._
 import play.api.mvc.{Controller, Action}
@@ -24,8 +24,8 @@ import reactivemongo.api.indexes.{Index, IndexType}
 
 @ImplementedBy(classOf[EventsController])
 trait EventsStream {
-    def publish: Concurrent.Channel[(String, JsValue)]
-    def subscribe: Enumerator[(String, JsValue)]
+    def publish: Concurrent.Channel[(String, String, JsValue)]
+    def subscribe: Enumerator[(String, String, JsValue)]
 }
 
 @Singleton
@@ -35,7 +35,7 @@ class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     import play.api.libs.concurrent.Execution.Implicits.defaultContext
     import JsCursor._
 
-    val (enumerator, channel) = Concurrent.broadcast[(String, JsValue)]
+    val (enumerator, channel) = Concurrent.broadcast[(String, String, JsValue)]
     override def publish = channel
     override def subscribe = enumerator
 
@@ -108,8 +108,10 @@ class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     }
 
     def stream(slug: String) = Action {
-        implicit val dataExtractor = EventDataExtractor[(String, JsValue)](d => d._2.toString)
-        implicit val nameExtractor = EventNameExtractor[(String, JsValue)](d => Some(d._1))
-        Ok.chunked(subscribe &> EventSource())
+        implicit val dataExtractor = EventDataExtractor[(String, String, JsValue)](d => d._3.toString)
+        implicit val nameExtractor = EventNameExtractor[(String, String, JsValue)](d => Some(d._1))
+        Ok.chunked(subscribe
+            &> Enumeratee.filter[(String, String, JsValue)] { case (_, event, _) => event == slug }
+                &> EventSource())
     }
 }

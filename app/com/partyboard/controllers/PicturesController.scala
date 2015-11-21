@@ -61,7 +61,7 @@ class PicturesController @Inject() (val reactiveMongoApi: ReactiveMongoApi, val 
             request.body.files.head.ref.flatMap { file =>
                 val result = JsObject(Seq("file" -> file.id)).transform(generateId andThen addEventId(event)).get
                 collection.insert(result).map { err =>
-                    eventsStream.publish.push(("picture", result.transform(extractId).get))
+                    eventsStream.publish.push(("picture", slug, result.transform(extractId).get))
                     Created(result.transform(extractId).get)
                 }
             }.recover {

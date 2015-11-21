@@ -1,9 +1,10 @@
 package com.partyboard.controllers
 
-import javax.inject.{Inject, Singleton}
-
+import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.language.postfixOps
+
+import javax.inject.{Inject, Singleton}
 
 import play.api.libs.EventSource
 import play.api.libs.EventSource.{EventDataExtractor, EventNameExtractor}
@@ -19,25 +20,33 @@ import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMo
 
 import com.google.inject.ImplementedBy
 
+import akka.actor.ActorSystem
+
 import reactivemongo.bson.BSONObjectID
 import reactivemongo.api.indexes.{Index, IndexType}
 
 @ImplementedBy(classOf[EventsController])
 trait EventsStream {
-    def publish: Concurrent.Channel[(String, String, JsValue)]
-    def subscribe: Enumerator[(String, String, JsValue)]
+    def publish: Concurrent.Channel[(String, Option[String], JsValue)]
+    def subscribe: Enumerator[(String, Option[String], JsValue)]
 }
 
 @Singleton
-class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
+class EventsController @Inject() (val system: ActorSystem, val reactiveMongoApi: ReactiveMongoApi)
     extends Controller with EventsStream with MongoController with ReactiveMongoComponents {
 
     import play.api.libs.concurrent.Execution.Implicits.defaultContext
     import JsCursor._
 
-    val (enumerator, channel) = Concurrent.broadcast[(String, String, JsValue)]
+
+    val (enumerator, channel) = Concurrent.broadcast[(String, Option[String], JsValue)]
     override def publish = channel
     override def subscribe = enumerator
+    
+    val keepAliveTask = system.scheduler.schedule(0.milliseconds, 15.seconds) {
+        publish.push(("keepalive", None, JsNumber(System.currentTimeMillis)))
+    }
+
 
     def collection: JSONCollection = db.collection[JSONCollection]("events")
 
@@ -61,7 +70,6 @@ class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
     def addPictures(pictures: Seq[JsValue]): Reads[JsObject] =
         __.json.update((__ \ 'pictures).json.put(JsArray(pictures.map(_.transform(extractId).get))))
-
 
 
     def index = Action.async {
@@ -108,10 +116,10 @@ class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     }
 
     def stream(slug: String) = Action {
-        implicit val dataExtractor = EventDataExtractor[(String, String, JsValue)](d => d._3.toString)
-        implicit val nameExtractor = EventNameExtractor[(String, String, JsValue)](d => Some(d._1))
+        implicit val dataExtractor = EventDataExtractor[(String, Option[String], JsValue)](d => d._3.toString)
+        implicit val nameExtractor = EventNameExtractor[(String, Option[String], JsValue)](d => Some(d._1))
         Ok.chunked(subscribe
-            &> Enumeratee.filter[(String, String, JsValue)] { case (_, event, _) => event == slug }
+            &> Enumeratee.filter[(String, Option[String], JsValue)] { case (_, event, _) => event.fold(true)(_ == slug) }
                 &> EventSource())
     }
 }

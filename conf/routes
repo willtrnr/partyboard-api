@@ -3,18 +3,18 @@
 # ~~~~
 
 # Events
-GET       /events/          com.partyboard.controllers.EventsController.index
-POST      /events/          com.partyboard.controllers.EventsController.create
-GET       /events/:slug     com.partyboard.controllers.EventsController.read(slug)
-PUT       /events/:slug     com.partyboard.controllers.EventsController.update(slug)
-DELETE    /events/:slug     com.partyboard.controllers.EventsController.delete(slug)
+GET       /events/                com.partyboard.controllers.EventsController.index
+POST      /events/                com.partyboard.controllers.EventsController.create
+GET       /events/:slug           com.partyboard.controllers.EventsController.read(slug)
+PUT       /events/:slug           com.partyboard.controllers.EventsController.update(slug)
+DELETE    /events/:slug           com.partyboard.controllers.EventsController.delete(slug)
+GET       /events/:slug/stream    com.partyboard.controllers.EventsController.stream(slug)
 
 # Pictures
-GET       /events/:slug/pictures                com.partyboard.controllers.PicturesController.index(slug)
-POST      /events/:slug/pictures                com.partyboard.controllers.PicturesController.create(slug)
-GET       /events/:slug/pictures/$id<[0-9]+>    com.partyboard.controllers.PicturesController.read(slug, id: Long)
-PUT       /events/:slug/pictures/$id<[0-9]+>    com.partyboard.controllers.PicturesController.read(slug, id: Long)
-DELETE    /events/:slug/pictures/$id<[0-9]+>    com.partyboard.controllers.PicturesController.delete(slug, id: Long)
+GET       /events/:slug/pictures/       com.partyboard.controllers.PicturesController.index(slug)
+POST      /events/:slug/pictures/       com.partyboard.controllers.PicturesController.create(slug)
+GET       /events/:slug/pictures/:id    com.partyboard.controllers.PicturesController.read(slug, id)
+DELETE    /events/:slug/pictures/:id    com.partyboard.controllers.PicturesController.delete(slug, id)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)

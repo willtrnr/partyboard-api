@@ -5,7 +5,10 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future
 import scala.language.postfixOps
 
+import play.api.libs.EventSource
+import play.api.libs.EventSource.{EventDataExtractor, EventNameExtractor}
 import play.api.libs.functional.syntax._
+import play.api.libs.iteratee.{Concurrent, Enumerator}
 import play.api.libs.json._
 import play.api.libs.json.Reads._
 import play.api.mvc.{Controller, Action}
@@ -14,16 +17,27 @@ import play.modules.reactivemongo.json._
 import play.modules.reactivemongo.json.collection._
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 
+import com.google.inject.ImplementedBy
+
 import reactivemongo.bson.BSONObjectID
 import reactivemongo.api.indexes.{Index, IndexType}
 
+@ImplementedBy(classOf[EventsController])
+trait EventsStream {
+    def publish: Concurrent.Channel[(String, JsValue)]
+    def subscribe: Enumerator[(String, JsValue)]
+}
+
 @Singleton
 class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
-    extends Controller with MongoController with ReactiveMongoComponents {
+    extends Controller with EventsStream with MongoController with ReactiveMongoComponents {
 
     import play.api.libs.concurrent.Execution.Implicits.defaultContext
     import JsCursor._
 
+    val (enumerator, channel) = Concurrent.broadcast[(String, JsValue)]
+    override def publish = channel
+    override def subscribe = enumerator
 
     def collection: JSONCollection = db.collection[JSONCollection]("events")
 
@@ -93,5 +107,9 @@ class EventsController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
         }.getOrElse(Future.successful(NotFound)))
     }
 
-    def stream(slug: String) = TODO
+    def stream(slug: String) = Action {
+        implicit val dataExtractor = EventDataExtractor[(String, JsValue)](d => d._2.toString)
+        implicit val nameExtractor = EventNameExtractor[(String, JsValue)](d => Some(d._1))
+        Ok.chunked(subscribe &> EventSource())
+    }
 }

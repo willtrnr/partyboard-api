@@ -20,7 +20,7 @@ import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.bson.BSONObjectID
 
 @Singleton
-class PicturesController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
+class PicturesController @Inject() (val reactiveMongoApi: ReactiveMongoApi, val eventsStream: EventsStream)
     extends Controller with MongoController with ReactiveMongoComponents {
 
     import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -61,6 +61,7 @@ class PicturesController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
             request.body.files.head.ref.flatMap { file =>
                 val result = JsObject(Seq("file" -> file.id)).transform(generateId andThen addEventId(event)).get
                 collection.insert(result).map { err =>
+                    eventsStream.publish.push(("picture", result.transform(extractId).get))
                     Created(result.transform(extractId).get)
                 }
             }.recover {
